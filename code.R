@@ -15,8 +15,8 @@ require(rjags)
 #   b1 and b2 are scale parameters for the two groups, respectively
 
 # output: 
-#   y1 is the vector of success indicators and w1 is vector of uniform weights for subjects at stage one;
-#   y is the vector of success indicators for all subjects at the end of the study
+#   y1 is the vector of failure indicators and w1 is vector of uniform weights for subjects at stage one;
+#   y is the vector of failure indicators for all subjects at the end of the study
 #----------------------------------------------------------------------------------------------
 
 Simdata<-function(N=20,N1=10,prop=0.5,rate_accrual=1/2.4,wd1=8,wd2=12,a=1,b1=b1,b2=b2){
@@ -44,7 +44,7 @@ Simdata<-function(N=20,N1=10,prop=0.5,rate_accrual=1/2.4,wd1=8,wd2=12,a=1,b1=b1,
   
   # At the final stage (last enrolled patient + 12 months)
   y=ifelse(yt<=WD,1,0)
-  list(y1=1-y1,w1=w1,y=1-y) # event indicator transfer to success indicator
+  list(y1=y1,w1=w1,y=y) 
 }
 
 #-----------------------------------------------------------------------
@@ -61,7 +61,7 @@ for(k in 1:K){
 beta[k] ~ dnorm(mu.beta,tau)
 }
 
-mu.beta ~dnorm(0,prior.beta)
+mu.beta ~ dnorm(0,prior.beta)
 
 # uniform prior for standard deviation
 tau <- pow(sigma, -2)
@@ -71,7 +71,7 @@ sigma ~ dunif(0, prior.sigma)
 #tau ~ dgamma(1, prior.sigma) 
 
 for(k in 1:K){ 
-pe[k]=exp(alpha[k]+beta[k])/(1+exp(alpha[k]+beta[k]))
+pe[k]=1/(1+exp(alpha[k]+beta[k]))  # success prob
 }
 }"
 
@@ -85,7 +85,7 @@ y[i]  ~  dbin(p[i]*w[i], 1)
 logit(p[i]) <- alpha + beta
 }
 beta ~ dnorm(0,prior.beta)
-pe=exp(alpha+beta)/(1+exp(alpha+beta))
+pe=1/(1+exp(alpha+beta))
 }"
 
 
@@ -105,7 +105,7 @@ JBHM <- function(ys1,ws1,gs1,ys2,ws2,gs2,H0=H0,H1=H1,pL=0.1,prior.beta=prior.bet
   # uninteresting (NULL) rate are transferred to logodds
   alpha=H0
   for(k in 1:ngrp){
-    alpha[k]=log(H0[k]/(1-H0[k]))  
+    alpha[k]=log((1-H0[k])/H0[k])  
   }
   
   #------------------------------------------------------------------
@@ -180,10 +180,10 @@ H1=c(0.3,0.75) # alternative
 wd1=8   # PFS at 8 months
 wd2=12  # PFS at 1 year
 a.shape=1   # exponential distribution
-prior.sigma=1
+prior.sigma=1  
 prior.beta=0.01
 
-BB=1000
+BB=2000
   
   #-----------------------------------------------------------
   # obtain type I error simulated under H0
@@ -197,26 +197,26 @@ Prob_s2=Stop=matrix(0,BB,2)
                  a=a.shape,b1=wd1/((-log(H0[2]))^(1/a.shape)),b2=wd2/((-log(H0[2]))^(1/a.shape)))
     
     # simulate all subjects for the stratum with a binary outcome 
-    yg1=rbinom(n[1],1,H0[1]) 
+    yg1=1-rbinom(n[1],1,H0[1]) 
     
     # data at stage one: combine two strata
-    ys1=c(yg1[1:Ng1],simd$y1) # success indicators for both strata in stage one
+    ys1=c(yg1[1:Ng1],simd$y1) # failure indicators for both strata in stage one
     ws1=c(rep(1,Ng1),simd$w1) # weights for both strata in stage one (for the group with a binary outcome, all weights are one)
     gs1=rep(c(1,2),c(Ng1,Ng2))
     
     # data at stage two (no weight as all reached the study endpoint)
-    ys2=c(yg1,simd$y) # success indicators for both strata in stage one
+    ys2=c(yg1,simd$y) # failure indicators for both strata in stage one
     ws2=rep(1,N) # all weights are one as all subjects have complete information
     gs2=rep(c(1,2),n)
     
     res=JBHM(ys1,ws1,gs1,ys2,ws2,gs2,H0=H0,H1=H1,pL=0.1,
-             prior.beta=prior.beta,prior.sigma=prior.sigma,ns=1000)
+             prior.beta=prior.beta,prior.sigma=prior.sigma,ns=2000)
     
     Stop[ntrial,]=res$stop
     Prob_s2[ntrial,]=res$prob_s2
   } 
 
-  Reject=colMeans(ifelse(Prob_s2>0.95,1,0))
+  Reject=colMeans(ifelse(Prob_s2>0.9,1,0))
   PET=colMeans(Stop)
   Es=PET*c(Ng1,Ng2)+(1-PET)*n
   res_H0=cbind.data.frame(type1=Reject,Es_H0=Es,PET_H0=PET)
@@ -234,28 +234,29 @@ Prob_s2=Stop=matrix(0,BB,2)
                  a=a.shape,b1=wd1/((-log(H1[2]))^(1/a.shape)),b2=wd2/((-log(H1[2]))^(1/a.shape)))
     
     # simulate all subjects for the stratum with a binary outcome 
-    yg1=rbinom(n[1],1,H1[1]) 
+    yg1=1-rbinom(n[1],1,H1[1]) 
     
     # data at stage one: combine two strata
-    ys1=c(yg1[1:Ng1],simd$y1) # success indicators for both strata in stage one
+    ys1=c(yg1[1:Ng1],simd$y1) # failure indicators for both strata in stage one
     ws1=c(rep(1,Ng1),simd$w1) # weights for both strata in stage one (for the group with a binary outcome, all weights are one)
     gs1=rep(c(1,2),c(Ng1,Ng2))
     
     # data at stage two (no weight as all reached the study endpoint)
-    ys2=c(yg1,simd$y) # success indicators for both strata in stage one
+    ys2=c(yg1,simd$y) # failure indicators for both strata in stage one
     ws2=rep(1,N) # all weights are one as all subjects have complete information
     gs2=rep(c(1,2),n)
     
     res=JBHM(ys1,ws1,gs1,ys2,ws2,gs2,H0=H0,H1=H1,pL=0.1,
-             prior.beta=prior.beta,prior.sigma=prior.sigma,ns=1000)
+             prior.beta=prior.beta,prior.sigma=prior.sigma,ns=2000)
     
     Stop[ntrial,]=res$stop
     Prob_s2[ntrial,]=res$prob_s2
   } 
   
-  Reject=colMeans(ifelse(Prob_s2>0.90,1,0))
+  Reject=colMeans(ifelse(Prob_s2>0.9,1,0))
   PET=colMeans(Stop)
   Es=PET*c(Ng1,Ng2)+(1-PET)*n
   res_H1=cbind.data.frame(power=Reject,Es_H1=Es,PET_H1=PET)
   
   res_H0;res_H1;
+  
