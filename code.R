@@ -2,7 +2,7 @@ rm(list=ls())
 require(rjags)
 
 #----------------------------------------------------------------------------------------------
-# simulate survival times from two weibull distributions for two groups (DIPG and HGG in the paper)
+# simulate survival times from two weibull distributions for two groups (DIPG and HGG in the pathetar)
 # Weibull distribution is parametrized by rweibull(n, a, b) with S(x) = exp(- (x/b)^a)
 
 # input:
@@ -71,7 +71,7 @@ sigma ~ dunif(0, prior.sigma)
 #tau ~ dgamma(1, prior.sigma) 
 
 for(k in 1:K){ 
-pe[k]=1/(1+exp(alpha[k]+beta[k]))  # success prob
+theta[k]=1/(1+exp(alpha[k]+beta[k]))  # success prob
 }
 }"
 
@@ -85,7 +85,7 @@ y[i]  ~  dbin(p[i]*w[i], 1)
 logit(p[i]) <- alpha + beta
 }
 beta ~ dnorm(0,prior.beta)
-pe=1/(1+exp(alpha+beta))
+theta=1/(1+exp(alpha+beta))
 }"
 
 
@@ -115,7 +115,7 @@ JBHM <- function(ys1,ws1,gs1,ys2,ws2,gs2,H0=H0,H1=H1,pL=0.1,prior.beta=prior.bet
   init=list(beta=c(0,0),mu.beta=0,sigma=1)
   model=jags.model(textConnection(modelmultiple),data=data,inits=init, quiet=TRUE)
   update(model,n.iter=1000,progress.bar="none")
-  output=coda.samples(model=model,variable.names=c("pe"), n.iter=ns,thin=1)
+  output=coda.samples(model=model,variable.names=c("theta"), n.iter=ns,thin=1)
   Mat = as.matrix(output)
   prob_s1=rep(0,ngrp)
   for(k in 1:ngrp){
@@ -136,7 +136,7 @@ JBHM <- function(ys1,ws1,gs1,ys2,ws2,gs2,H0=H0,H1=H1,pL=0.1,prior.beta=prior.bet
     data=list(y=ys2,g=gs2,N=length(ys2),K=ngrp,w=ws2,alpha=alpha,prior.sigma=prior.sigma,prior.beta=prior.beta)
     model=jags.model(textConnection(modelmultiple),data=data,inits=init, quiet=TRUE)
     update(model,n.iter=1000,progress.bar="none")
-    output=coda.samples(model=model,variable.names=c("pe"), n.iter=ns,thin=1)
+    output=coda.samples(model=model,variable.names=c("theta"), n.iter=ns,thin=1)
     Mat = as.matrix(output)
     for(k in 1:ngrp){
       prob_s2[k]=sum(ifelse(Mat[,k]>H0[k],1,0))/ns  
@@ -148,7 +148,7 @@ JBHM <- function(ys1,ws1,gs1,ys2,ws2,gs2,H0=H0,H1=H1,pL=0.1,prior.beta=prior.bet
     data=list(y=ys2[gs2==2],N=sum(gs2==2),w=ws2,alpha=alpha[2],prior.beta=prior.beta)
     model=jags.model(textConnection(modelsingle),data=data,inits=init, quiet=TRUE)
     update(model,n.iter=1000,progress.bar="none")
-    output=coda.samples(model=model,variable.names=c("pe"),n.iter=ns,thin=1)
+    output=coda.samples(model=model,variable.names=c("theta"),n.iter=ns,thin=1)
     Mat = as.matrix(output)
     prob_s2[2]=sum(ifelse(Mat>H0[2],1,0))/ns
     
@@ -158,7 +158,7 @@ JBHM <- function(ys1,ws1,gs1,ys2,ws2,gs2,H0=H0,H1=H1,pL=0.1,prior.beta=prior.bet
     data=list(y=ys2[gs2==1],N=sum(gs2==1),w=ws2,alpha=alpha[1],prior.beta=prior.beta)
     model=jags.model(textConnection(modelsingle),data=data,inits=init, quiet=TRUE)
     update(model,n.iter=1000,progress.bar="none")
-    output=coda.samples(model=model,variable.names=c("pe"), n.iter=ns,thin=1)
+    output=coda.samples(model=model,variable.names=c("theta"), n.iter=ns,thin=1)
     Mat = as.matrix(output)
     prob_s2[1]=sum(ifelse(Mat>H0[1],1,0))/ns
     
@@ -259,4 +259,3 @@ Prob_s2=Stop=matrix(0,BB,2)
   res_H1=cbind.data.frame(power=Reject,Es_H1=Es,PET_H1=PET)
   
   res_H0;res_H1;
-  
